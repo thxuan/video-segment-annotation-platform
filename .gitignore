@@ -1,0 +1,48 @@
+# Local configuration and secrets; keep documented examples.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# JavaScript dependencies and generated output.
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+.cache/
+playwright-report/
+test-results/
+
+# Python environments, caches and generated output.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+
+# Local video files and runtime data.
+data/
+storage/
+*.mp4
+*.mov
+*.webm
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# Local editor and operating system files.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

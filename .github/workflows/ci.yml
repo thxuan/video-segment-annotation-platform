@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend build and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: src/frontend
+      - name: Check types and build
+        run: npm run build
+        working-directory: src/frontend
+      - name: Run frontend unit tests
+        run: node --test tests/frontend/*.test.mjs
+
+  backend:
+    name: Backend and PostgreSQL integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: src/backend/requirements.lock
+      - name: Set up Node.js for runner metadata
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install locked Python dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r src/backend/requirements.lock
+          python -m pip check
+      - name: Install media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
+      - name: Generate an isolated media fixture
+        run: |
+          mkdir -p storage/videos
+          ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i testsrc2=size=160x120:rate=10 -t 8 \
+            -c:v libx264 -pix_fmt yuv420p -movflags +faststart \
+            storage/videos/pusht-demo.mp4
+      - name: Pull the dedicated PostgreSQL image
+        run: docker pull pgvector/pgvector:0.8.0-pg17
+      - name: Run backend functions and real database tests
+        run: python -u tools/run_automation.py integration
+      - name: Upload test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: backend-test-results
+          retention-days: 7
+          if-no-files-found: ignore
+          include-hidden-files: true
+          path: |
+            .cache/automation/**/summary.json
+            .cache/automation/**/pytest.xml
+            .cache/automation/**/postgresql-api-and-date-tests.log

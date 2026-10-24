@@ -1,0 +1,21 @@
+name: annotation-date-tests
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg17
+    environment:
+      POSTGRES_DB: annotation_date_tests
+      POSTGRES_USER: annotation_date_tests
+      POSTGRES_PASSWORD: ${DATE_TEST_PASSWORD:?Run tools/prepare_date_tests.py first}
+    ports:
+      - "127.0.0.1:55434:5432"
+    volumes:
+      - date_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U annotation_date_tests -d annotation_date_tests"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  date_test_data:

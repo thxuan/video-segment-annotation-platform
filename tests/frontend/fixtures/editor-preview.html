@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+  </head>
+  <body style="padding: 24px; background: #f6f8f5">
+    <div id="root"></div>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+      import { TaskWorkspace } from "/src/TaskWorkspace.tsx";
+      import { App } from "/src/App.tsx";
+      import "/src/styles.css";
+      const admin =
+        new URLSearchParams(location.search).get("role") === "admin";
+      const session = {
+        user: {
+          id: admin ? "mock-admin" : "mock-a1",
+          username: admin ? "admin" : "a1",
+          display_name: "局部组件预览",
+          role: admin ? "admin" : "annotator",
+          tenant_id: "mock-tenant",
+          tenant_name: "预览租户",
+        },
+        csrf_token: "mock-only-token",
+      };
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      createRoot(document.getElementById("root")).render(
+        React.createElement(
+          React.StrictMode,
+          null,
+          React.createElement(
+            QueryClientProvider,
+            { client },
+            new URLSearchParams(location.search).get("app") === "1"
+              ? React.createElement(App)
+              : React.createElement(TaskWorkspace, {
+                  id: "mock-task",
+                  session,
+                  onBack: () => {},
+                  onExpired: () => {
+                    window.expired = true;
+                  },
+                  onActivity: (dirty, busy) => {
+                    window.activity = { dirty, busy };
+                  },
+                }),
+          ),
+        ),
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+name: annotation-automation-tests
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg17
+    environment:
+      POSTGRES_DB: annotation_automation_tests
+      POSTGRES_USER: annotation_automation_tests
+      POSTGRES_PASSWORD: ${AUTOMATION_TEST_PASSWORD:?Run tools/automation_environment.py prepare first}
+    ports:
+      - "127.0.0.1:55435:5432"
+    # Disposable test data; never mount the acceptance database volume.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U annotation_automation_tests -d annotation_automation_tests",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  api:
+    profiles: [application]
+    build: ./src/backend
+    environment:
+      APP_DATABASE_URL: postgresql+psycopg://annotation_automation_tests:${AUTOMATION_TEST_PASSWORD}@db:5432/annotation_automation_tests
+      APP_VIDEO_DIR: /app/storage/videos
+      APP_FFPROBE_BINARY: ffprobe
+      APP_ALLOWED_ORIGINS: '["http://127.0.0.1:5880"]'
+      APP_COOKIE_SECURE: "false"
+    ports:
+      - "127.0.0.1:5801:8000"
+    volumes:
+      - ./.cache/automation-videos:/app/storage/videos
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=3)",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  web:
+    profiles: [application]
+    build: ./src/frontend
+    ports:
+      - "127.0.0.1:5880:80"
+    depends_on:
+      api:
+        condition: service_healthy
